@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ashare-event-opportunity-engine"
+version = "0.1.0"
+description = "Evidence-backed state tracking for A-share listed-company capital events"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Leo984357"}]
+keywords = ["a-share", "event-study", "capital-markets", "financial-nlp", "state-machine"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = []
+
+[project.scripts]
+ashare-event-engine = "ashare_event_engine.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

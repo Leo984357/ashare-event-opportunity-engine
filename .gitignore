@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.env
+.env.*
+.DS_Store
+
+# Never commit licensed or client-level research data.
+data/
+数据/
+output/
+results/
+*.pdf
+*.xlsx
+*.xls
+*.parquet
+*.feather
+*.csv
+!examples/*.csv
