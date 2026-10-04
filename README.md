@@ -1,57 +1,87 @@
 # AShare Event Opportunity Engine
 
-Evidence-backed state tracking for capital-market announcements of A-share listed companies.
+**Turn A-share disclosures into linked capital events, chronological states, and evidence-backed research leads.**
 
-This project turns noisy disclosure records into auditable research objects:
+A company may publish a plan, an exchange inquiry, a legal opinion, and an issuance result for the same transaction. This Python engine groups those records into one event and tracks what has actually changed, helping researchers review financing, M&A, capital expenditure, and treasury activity without counting every announcement as a new opportunity.
+
+[Run the demo](#quick-start) · [See actual demo output](docs/demo.md) · [Methodology](docs/methodology.md) · [Tests](tests)
+
+## See the result
+
+The bundled **synthetic** example contains 18 announcements from 7 fictional companies. With a reference date of **2026-07-01**, the engine produces:
+
+| Output | Demo result |
+|---|---:|
+| Linked capital events | 8 |
+| Events in an active research window | 6 |
+| Closed or historical events | 2 |
+| Unclassified announcements | 1 |
+| Invalid input rows | 0 |
+
+These are reproducible demo counts, not accuracy estimates on real filings. The [full preview](docs/demo.md) shows every event, a state-transition trace, and the generated audit summary.
+
+For example, four synthetic equity-financing disclosures become one event:
 
 ```text
-announcement
-  -> product and announcement-role classification
-  -> announcements linked to the same capital event
-  -> chronological state transitions
-  -> active-window and service-opportunity research leads
-  -> audit report and human-review queue
+2025-06-10  Plan disclosed       → planning
+2025-09-18  Exchange acceptance  → review
+2026-01-12  Registration         → registered
+2026-04-20  Issuance result      → completed
+
+One capital event · four source announcements · closed research lead
 ```
-
-The repository contains only generic methods and synthetic examples. It does not contain licensed
-financial data, downloaded filings, employer material, real client lists, or investment recommendations.
-
-## Why this is different from keyword counting
-
-A listed company can publish dozens of documents around one transaction. A plan, an exchange inquiry,
-a legal opinion and an issuance result are not four independent opportunities. This engine:
-
-- links related announcements into one event;
-- separates primary disclosures from routine reports, intermediary opinions and regulatory clarifications;
-- processes state transitions in date order;
-- keeps terminal states closed unless an explicitly new event is identified;
-- exposes confidence, matched evidence and verification questions instead of outputting an unexplained score.
 
 ## Quick start
 
-Python 3.10 or newer is required. The core package has no third-party runtime dependency.
+Requires **Python 3.10+**. The core package has no third-party runtime dependencies.
 
 ```bash
+git clone https://github.com/Leo984357/ashare-event-opportunity-engine.git
+cd ashare-event-opportunity-engine
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install -e .
-ashare-event-engine examples/synthetic_announcements.csv --output-dir output
+ashare-event-engine examples/synthetic_announcements.csv \
+  --financials examples/synthetic_financials.csv \
+  --as-of 2026-07-01 \
+  --output-dir output/demo
 ```
 
-Generated files:
+For a source-tree run without installation, use the same arguments with `PYTHONPATH=src python3 -m ashare_event_engine` in a POSIX shell.
 
-- `announcement_classifications.csv`: one announcement per row;
-- `capital_events.csv`: one linked capital event per row;
-- `opportunity_leads.csv`: one research lead per event;
-- `audit.json`: coverage, duplicates, abstentions and state-quality checks.
+The command writes four files:
 
-Run tests:
+| File | What to inspect |
+|---|---|
+| `announcement_classifications.csv` | Product, announcement role, confidence, and matched evidence for each disclosure |
+| `capital_events.csv` | Linked disclosures, current state, and chronological state history |
+| `opportunity_leads.csv` | Research status, transparent score rationale, and verification questions |
+| `audit.json` | Coverage, duplicates, unclassified records, state counts, and invalid input rows |
 
-```bash
-python -m unittest discover -s tests -v
+Financial data is optional: omit `--financials` to run on announcements alone. `--as-of` sets the reference date for lead recency; when omitted, it defaults to the latest announcement date. Supply an input snapshot containing only disclosures available by your intended research date.
+
+## How it works
+
+```text
+Announcement CSV
+  → product, role, and subject classification
+  → linkage by company, product, and transaction anchor
+  → chronological state transitions
+  → research-window status and financial signals
+  → auditable CSV outputs + JSON quality summary
 ```
 
-## Input schema
+- **Separate documents from events.** A plan and its completion announcement share an event when their transaction anchors match. Ambiguous records remain separate.
+- **Use document roles.** Routine reports and supporting documents provide context; substantive disclosures drive lifecycle states.
+- **Preserve completed events.** Terminal states stay closed. An explicitly new plan can form a separate event.
+- **Expose the reason for each lead.** Outputs include the state, evidence level, scoring rationale, and questions for human verification.
+- **Keep missing data explicit.** Financial signals use disclosed fields; missing values remain missing.
 
-Required columns:
+The [methodology](docs/methodology.md) documents the data model, linkage rules, state transitions, financial definitions, scoring, and evaluation plan.
+
+## Bring your own data
+
+Required announcement columns:
 
 | Column | Meaning |
 |---|---|
@@ -59,30 +89,36 @@ Required columns:
 | `company_id` | Six-digit security code or another stable company identifier |
 | `company_name` | Company name |
 | `title` | Announcement title |
-| `announcement_date` | `YYYY-MM-DD` |
+| `announcement_date` | Date in `YYYY-MM-DD` format |
 
-Optional columns:
+Optional columns are `text` for extracted filing text and `category` for an upstream category hint. Title-only input is supported. See the [announcement fixture](examples/synthetic_announcements.csv) for a complete CSV.
 
-| Column | Meaning |
+Optional financial data joins on `company_id`. Fields include cash, restricted cash, operating cash flow, capex, and short-term debt; monetary fields must use a consistent unit. See the [financial fixture](examples/synthetic_financials.csv) and [field definitions](docs/methodology.md#5-financial-signals).
+
+## Validation and research scope
+
+After installation, run the existing classifier, linkage, state-machine, lead-scoring, and pipeline tests:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+A source-tree check in a POSIX shell is `PYTHONPATH=src python3 -m unittest discover -s tests -v`.
+
+This is an **alpha research framework** with synthetic public examples. Before applying rules to a new period or market segment, evaluate a manually labelled sample for classification, event linkage, current-state accuracy, and terminal-state false-open rates.
+
+A lead score is a screening score, not a transaction probability. Public disclosures can arrive after advisers have been appointed, so active events require verification of any remaining service need. The repository contains generic methods and synthetic fixtures; external research data remains separate.
+
+## Repository map
+
+| Path | Contents |
 |---|---|
-| `text` | Extracted filing text; title-only processing is supported |
-| `category` | Upstream category hint such as `定增_配股`; it is evidence, not ground truth |
-
-An optional financial CSV can be supplied with `--financials`. Its stable identifier is
-`company_id`; supported fields are documented in [methodology.md](docs/methodology.md).
-
-## Research boundaries
-
-- A lead score is a transparent screening score, not a transaction probability.
-- Public disclosure usually arrives after advisers have been appointed. An active event does not imply
-  that a mandate remains available.
-- Missing financial values remain missing. The engine does not estimate short-term debt from leverage or
-  substitute zero for undisclosed values.
-- Rules should be evaluated on a manually labelled sample before use on a new period or market segment.
-
-See [methodology.md](docs/methodology.md) for the data model, state logic and suggested evaluation metrics.
+| [src/ashare_event_engine](src/ashare_event_engine) | Classification, linkage, state machine, financial features, pipeline, and CLI |
+| [examples](examples) | Synthetic announcement and financial inputs |
+| [docs/demo.md](docs/demo.md) | Reproduced results from the bundled example |
+| [docs/methodology.md](docs/methodology.md) | Research definitions and evaluation metrics |
+| [tests](tests) | Executable behavior checks |
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
-Evidence-backed state machine for A-share listed-company capital events and service opportunity research
+[MIT](LICENSE).
